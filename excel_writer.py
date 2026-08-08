@@ -15,41 +15,56 @@ def analyze_bonds():
     # Clean up column names for easy access later
     bond_df.columns = [str(c).strip() for c in bond_df.columns]
     
-    def find_col(substring):
-        for c in bond_df.columns:
-            if substring.lower() in str(c).lower():
-                return c
-        return None
-        
-    coupon_col = find_col('coupon')
-    ytm_col = find_col('yield') or find_col('ytm')
-    maturity_col = find_col('maturity')
-    name_col = find_col('name') or find_col('security') or bond_df.columns[0]
+    rename_map = {
+        'Category': 'Bond Category',
+        'Bond Symbol': 'Bond Symbol',
+        'Issuer': 'Issuer',
+        'Issue Description': 'Issue Description',
+        'Coupon Rate (%)': 'Coupon Rate (%)',
+        'Face Value (₹)': 'Face Value (₹)',
+        'Last Traded Price (₹)': 'Last Traded Price (₹)',
+        'Current Yield (%)': 'Current Yield (%)',
+        'Yield to Maturity (%)': 'Yield to Maturity (YTM %)',
+        'Maturity Date': 'Maturity Date',
+        'Approx. Years to Maturity': 'Remaining Maturity (Years)',
+        'Open': 'Open Price (₹)',
+        'High': 'High Price (₹)',
+        'Low': 'Low Price (₹)',
+        'Close': 'Close Price (₹)',
+        'Volume': 'Volume Traded',
+        'Value': 'Traded Value (₹)'
+    }
+    bond_df.rename(columns=rename_map, inplace=True)
+    
+    coupon_col = 'Coupon Rate (%)'
+    ytm_col = 'Yield to Maturity (YTM %)'
+    maturity_col = 'Remaining Maturity (Years)'
+    sym_col = 'Bond Symbol'
     
     analysis_results = {}
-    if coupon_col:
+    if coupon_col in bond_df.columns and sym_col in bond_df.columns:
         if bond_df[coupon_col].dtype == object:
             bond_df[coupon_col] = bond_df[coupon_col].astype(str).str.rstrip('%').astype(float)
         highest_coupon = bond_df.loc[bond_df[coupon_col].idxmax()]
         lowest_coupon = bond_df.loc[bond_df[coupon_col].idxmin()]
-        analysis_results['Highest Coupon'] = f"{highest_coupon[name_col]} ({highest_coupon[coupon_col]:.2f}%)"
-        analysis_results['Lowest Coupon'] = f"{lowest_coupon[name_col]} ({lowest_coupon[coupon_col]:.2f}%)"
+        analysis_results['Highest Coupon Rate'] = f"{highest_coupon[sym_col]} ({highest_coupon[coupon_col]:.2f}%)"
+        analysis_results['Lowest Coupon Rate'] = f"{lowest_coupon[sym_col]} ({lowest_coupon[coupon_col]:.2f}%)"
         
-    if ytm_col:
+    if ytm_col in bond_df.columns and sym_col in bond_df.columns:
         if bond_df[ytm_col].dtype == object:
              bond_df[ytm_col] = bond_df[ytm_col].astype(str).str.rstrip('%').astype(float)
         highest_ytm = bond_df.loc[bond_df[ytm_col].idxmax()]
         lowest_ytm = bond_df.loc[bond_df[ytm_col].idxmin()]
-        analysis_results['Highest YTM'] = f"{highest_ytm[name_col]} ({highest_ytm[ytm_col]:.2f}%)"
-        analysis_results['Lowest YTM'] = f"{lowest_ytm[name_col]} ({lowest_ytm[ytm_col]:.2f}%)"
+        analysis_results['Highest Yield to Maturity'] = f"{highest_ytm[sym_col]} ({highest_ytm[ytm_col]:.3f}%)"
+        analysis_results['Lowest Yield to Maturity'] = f"{lowest_ytm[sym_col]} ({lowest_ytm[ytm_col]:.3f}%)"
         
-    if maturity_col:
+    if maturity_col in bond_df.columns and sym_col in bond_df.columns:
         longest_maturity = bond_df.loc[bond_df[maturity_col].idxmax()]
-        analysis_results['Longest Remaining Maturity'] = f"{longest_maturity[name_col]} ({longest_maturity[maturity_col]})"
+        analysis_results['Longest Remaining Maturity'] = f"{longest_maturity[sym_col]} ({int(longest_maturity[maturity_col])} Years)"
         
     analysis_df = pd.DataFrame(list(analysis_results.items()), columns=['Category', 'Details'])
     
-    return bond_df, analysis_df, name_col, ytm_col
+    return bond_df, analysis_df, sym_col, ytm_col
 
 
 def format_worksheet(worksheet, df, workbook, include_index=True):
@@ -164,6 +179,9 @@ def write_excel(all_data, close_prices, volume_data, returns, stats, port_weight
     })
     
     # 05_Portfolio_Weights
+    print("\n--- Data Flow Trace in excel_writer.py ---")
+    print("port_weights right before to_excel:\n", port_weights)
+    print("------------------------------------------\n")
     port_weights.index.name = 'Stock'
     port_weights.to_excel(writer, sheet_name='05_Portfolio_Weights')
     format_worksheet(writer.sheets['05_Portfolio_Weights'], port_weights, workbook)
@@ -285,12 +303,12 @@ def write_excel(all_data, close_prices, volume_data, returns, stats, port_weight
             
             bond_chart = workbook.add_chart({'type': 'column'})
             bond_chart.add_series({
-                'name': 'Yield to Maturity',
+                'name': 'Yield to Maturity (YTM %)',
                 'categories': f"='09_Bond_Data'!${n_let}$2:${n_let}${len(bond_data) + 1}",
                 'values': f"='09_Bond_Data'!${y_let}$2:${y_let}${len(bond_data) + 1}",
             })
-            bond_chart.set_title({'name': 'Bond Yield Comparison'})
-            bond_chart.set_y_axis({'name': 'YTM'})
+            bond_chart.set_title({'name': 'Yield to Maturity (YTM) Comparison'})
+            bond_chart.set_y_axis({'name': 'YTM (%)'})
             writer.sheets['10_Bond_Analysis'].insert_chart('D2', bond_chart, {'x_scale': 1.5, 'y_scale': 1.5})
             
     else:

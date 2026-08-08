@@ -24,6 +24,9 @@ def compute_statistics(stock_returns, index_returns):
 
 def min_variance_portfolio(returns):
     """
+    Calculates weights for Minimum Variance Portfolio using scipy.optimize.
+    Constraints: Weights sum to 1, Weights >= 0.
+    """
     num_assets = len(returns.columns)
     cov_matrix = returns.cov().values
     

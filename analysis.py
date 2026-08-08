@@ -101,6 +101,12 @@ def main():
     analysis_texts = generate_price_volume_analysis(all_data)
     
     # 9. Excel Writing and Bond Analysis (Task 8 & 9)
+    print("\n--- Data Flow Trace in analysis.py ---")
+    print("type(min_var_weights):", type(min_var_weights))
+    print("min_var_weights in analysis.py:\n", min_var_weights)
+    print("port_weights dataframe in analysis.py:\n", port_weights)
+    print("--------------------------------------\n")
+    
     print("Writing to Excel and building native charts...")
     write_excel(
         all_data, close_prices, volume_data, stock_returns, stats, 
