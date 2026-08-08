@@ -24,32 +24,44 @@ def compute_statistics(stock_returns, index_returns):
 
 def min_variance_portfolio(returns):
     """
-    Calculates weights for Minimum Variance Portfolio using scipy.optimize.
-    Constraints: Weights sum to 1, Weights >= 0.
-    """
     num_assets = len(returns.columns)
     cov_matrix = returns.cov().values
     
+    print("\n--- Minimum Variance Optimization Debug ---")
+    print(f"Covariance Matrix:\n{returns.cov()}")
+    
+    # Scale objective to prevent SciPy premature convergence on tiny gradients
     def portfolio_variance(weights):
         return np.dot(weights.T, np.dot(cov_matrix, weights))
+        
+    def scaled_portfolio_variance(weights):
+        return portfolio_variance(weights) * 100000
     
     initial_weights = np.array([1/num_assets] * num_assets)
     bounds = tuple((0, 1) for _ in range(num_assets))
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     
-    result = sco.minimize(portfolio_variance, initial_weights, method='SLSQP', bounds=bounds, constraints=constraints)
+    print(f"Initial Weights: {initial_weights}")
+    eq_var = portfolio_variance(initial_weights)
+    print(f"Equal-Weight Portfolio Variance: {eq_var}")
     
-    print("\n--- Minimum Variance Optimization Result ---")
-    print(f"Success: {result.success}")
-    print(f"Message: {result.message}")
-    print(f"Final Weights: {result.x}")
-    print(f"Portfolio Variance: {result.fun}")
-    print("--------------------------------------------\n")
+    result = sco.minimize(scaled_portfolio_variance, initial_weights, method='SLSQP', bounds=bounds, constraints=constraints)
+    
+    print(f"Optimization Success: {result.success}")
+    print(f"Optimization Message: {result.message}")
     
     if not result.success:
-        raise ValueError(f"Optimization failed: {result.message}")
-    
+        raise ValueError(f"Optimization failed to converge: {result.message}")
+        
     optimal_weights = result.x / np.sum(result.x) # Ensure it sums exactly to 1
+    opt_var = portfolio_variance(optimal_weights)
+    
+    print(f"Optimized Weights: {optimal_weights}")
+    print(f"Sum of Optimized Weights: {np.sum(optimal_weights)}")
+    print(f"Optimized Portfolio Variance: {opt_var}")
+    print("--------------------------------------------\n")
+    
+    assert opt_var <= eq_var + 1e-8, "Optimized variance is strictly worse than equal weights!"
     
     return pd.Series(optimal_weights, index=returns.columns)
 
