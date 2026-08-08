@@ -28,16 +28,26 @@ def min_variance_portfolio(returns):
     Constraints: Weights sum to 1, Weights >= 0.
     """
     num_assets = len(returns.columns)
-    cov_matrix = returns.cov()
+    cov_matrix = returns.cov().values
     
     def portfolio_variance(weights):
-        return weights.T @ cov_matrix @ weights
+        return np.dot(weights.T, np.dot(cov_matrix, weights))
     
     initial_weights = np.array([1/num_assets] * num_assets)
     bounds = tuple((0, 1) for _ in range(num_assets))
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     
     result = sco.minimize(portfolio_variance, initial_weights, method='SLSQP', bounds=bounds, constraints=constraints)
+    
+    print("\n--- Minimum Variance Optimization Result ---")
+    print(f"Success: {result.success}")
+    print(f"Message: {result.message}")
+    print(f"Final Weights: {result.x}")
+    print(f"Portfolio Variance: {result.fun}")
+    print("--------------------------------------------\n")
+    
+    if not result.success:
+        raise ValueError(f"Optimization failed: {result.message}")
     
     optimal_weights = result.x / np.sum(result.x) # Ensure it sums exactly to 1
     
