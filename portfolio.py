@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import scipy.optimize as sco
-from config import MARKET_CAPS, TRADING_DAYS_PER_YEAR, RISK_FREE_RATE_ANNUAL
+from config import STOCK_METADATA, TRADING_DAYS_PER_YEAR, RISK_FREE_RATE_ANNUAL
 
 def compute_statistics(stock_returns, index_returns):
     """
@@ -39,16 +39,19 @@ def min_variance_portfolio(returns):
     
     result = sco.minimize(portfolio_variance, initial_weights, method='SLSQP', bounds=bounds, constraints=constraints)
     
-    return pd.Series(result.x, index=returns.columns)
+    optimal_weights = result.x / np.sum(result.x) # Ensure it sums exactly to 1
+    
+    return pd.Series(optimal_weights, index=returns.columns)
 
 def value_weighted_portfolio(stocks):
     """
     Calculates weights for Value Weighted Portfolio based on MarketCap.
     Weight = MarketCap / TotalMarketCap
     """
-    caps = [MARKET_CAPS[stock] for stock in stocks]
+    caps = [STOCK_METADATA[stock]['MarketCap'] for stock in stocks]
     total_cap = sum(caps)
-    weights = [cap / total_cap for cap in caps]
+    weights = np.array([cap / total_cap for cap in caps])
+    weights = weights / np.sum(weights) # Ensure it sums exactly to 1
     return pd.Series(weights, index=stocks)
 
 def price_weighted_portfolio(latest_prices):
@@ -58,6 +61,7 @@ def price_weighted_portfolio(latest_prices):
     """
     total_price = latest_prices.sum()
     weights = latest_prices / total_price
+    weights = weights / weights.sum() # Ensure it sums exactly to 1
     return pd.Series(weights, index=latest_prices.index)
 
 def portfolio_performance(weights, returns):
@@ -72,14 +76,16 @@ def portfolio_performance(weights, returns):
     port_daily_std = np.sqrt(weights.T @ cov_matrix @ weights)
     
     # Annualize metrics
-    port_annual_return = port_daily_return * TRADING_DAYS_PER_YEAR
+    port_annual_return = ((1 + port_daily_return) ** TRADING_DAYS_PER_YEAR) - 1
     port_annual_std = port_daily_std * np.sqrt(TRADING_DAYS_PER_YEAR)
     
     # Sharpe Ratio
     sharpe_ratio = (port_annual_return - RISK_FREE_RATE_ANNUAL) / port_annual_std
     
     return {
-        'Return': port_annual_return,
-        'Standard Deviation': port_annual_std,
+        'Daily Return': port_daily_return,
+        'Annualized Return': port_annual_return,
+        'Daily Risk': port_daily_std,
+        'Annualized Risk': port_annual_std,
         'Sharpe Ratio': sharpe_ratio
     }

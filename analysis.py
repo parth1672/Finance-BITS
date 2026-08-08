@@ -5,17 +5,15 @@ from portfolio import (compute_statistics, min_variance_portfolio,
                        value_weighted_portfolio, price_weighted_portfolio, 
                        portfolio_performance)
 from capm import compute_capm
-from charts import (plot_price_volume, plot_portfolio_comparison, 
-                    plot_risk_return, plot_correlation_heatmap)
+from charts import generate_price_volume_analysis
 from excel_writer import write_excel
-from config import OUTPUT_DIR, CHARTS_DIR
+from config import OUTPUT_DIR, STOCK_METADATA
 
 def main():
     print("Starting Finance Assignment Automation...")
     
     # 1. Ensure output directories exist
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    os.makedirs(CHARTS_DIR, exist_ok=True)
     
     # 2. Load Data (Task 1)
     print("Loading data...")
@@ -33,8 +31,12 @@ def main():
     print("Computing statistics...")
     stats = compute_statistics(stock_returns, index_returns)
     
+    
     # 5. Portfolios (Task 4)
     print("Calculating portfolios...")
+    cov_matrix = stock_returns.cov()
+    corr_matrix = stock_returns.corr()
+    
     min_var_weights = min_variance_portfolio(stock_returns)
     val_weight_weights = value_weighted_portfolio(stock_returns.columns)
     
@@ -59,23 +61,52 @@ def main():
         'Price Weighted': perf_price_weight
     }).T
     
+    # Add Ranking
+    port_perf['Ranking'] = port_perf['Sharpe Ratio'].rank(ascending=False).astype(int)
+    
     # 7. CAPM (Task 7)
     print("Computing CAPM...")
     capm_df = compute_capm(stats, index_returns)
     
-    # 8. Charts (Task 6 & Others)
-    print("Generating charts...")
-    chart_paths = plot_price_volume(all_data)
-    p_comp_path = plot_portfolio_comparison(port_perf)
-    rr_path = plot_risk_return(stats)
-    corr_path = plot_correlation_heatmap(stock_returns)
+    # Selected Stocks Extended Data
+    ss_data = []
+    for stock in stock_returns.columns:
+        meta = STOCK_METADATA[stock]
+        ss_data.append({
+            'Stock Name': meta['Name'],
+            'NSE Symbol': meta['Symbol'],
+            'Sector': meta['Sector'],
+            'Market Capitalization': meta['MarketCap'],
+            'Beta': stats.loc[stock, 'Beta'],
+            'Mean Daily Return': stats.loc[stock, 'Mean Daily Return'],
+            'Standard Deviation': stats.loc[stock, 'Standard Deviation']
+        })
+    selected_stocks_df = pd.DataFrame(ss_data)
+    
+    # Executive Summary Data
+    exec_summary_data = {
+        'Assignment Title': 'Finance Automation Assignment',
+        'Student Name': '[Enter Student Name]',
+        'Sample Period': f"{index_data.index.min().strftime('%Y-%m-%d')} to {index_data.index.max().strftime('%Y-%m-%d')}",
+        'Selected Stocks': ', '.join(stock_returns.columns),
+        'Portfolio with Highest Return': port_perf['Annualized Return'].idxmax(),
+        'Portfolio with Lowest Risk': port_perf['Annualized Risk'].idxmin(),
+        'Highest Beta Stock': stats['Beta'].idxmax(),
+        'Highest Return Stock': stats['Mean Daily Return'].idxmax(),
+        'Overall Conclusion': 'The Minimum Variance Portfolio successfully minimizes risk. Further details are explored in the performance and charts sections.'
+    }
+    
+    # 8. Textual Analysis (Task 6)
+    print("Generating textual analysis...")
+    analysis_texts = generate_price_volume_analysis(all_data)
     
     # 9. Excel Writing and Bond Analysis (Task 8 & 9)
-    print("Writing to Excel and analyzing bonds...")
+    print("Writing to Excel and building native charts...")
     write_excel(
-        all_data, close_prices, stock_returns, stats, 
+        all_data, close_prices, volume_data, stock_returns, stats, 
         port_weights, port_perf, capm_df, 
-        chart_paths, p_comp_path, rr_path, corr_path
+        analysis_texts, selected_stocks_df, exec_summary_data, 
+        cov_matrix, corr_matrix
     )
     
     print("Automation complete.")

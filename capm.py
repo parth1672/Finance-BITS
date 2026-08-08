@@ -9,10 +9,10 @@ def compute_capm(stats_df, index_returns):
     capm_df = pd.DataFrame(index=stats_df.index)
     
     # Annualized Market Return
-    annual_market_return = index_returns.mean() * TRADING_DAYS_PER_YEAR
+    annual_market_return = ((1 + index_returns.mean()) ** TRADING_DAYS_PER_YEAR) - 1
     
     # Annualize stock returns
-    capm_df['Annualized Return'] = stats_df['Mean Daily Return'] * TRADING_DAYS_PER_YEAR
+    capm_df['Annualized Return'] = ((1 + stats_df['Mean Daily Return']) ** TRADING_DAYS_PER_YEAR) - 1
     
     # Expected Return from CAPM
     capm_df['Beta'] = stats_df['Beta']
